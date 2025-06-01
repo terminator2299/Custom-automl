@@ -7,3 +7,4 @@ optuna
 joblib
 matplotlib
 seaborn
+flask
