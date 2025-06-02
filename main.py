@@ -14,7 +14,7 @@ def main():
     df = pd.read_csv(DATA_PATH)
 
     print("✅ Preprocessing data...")
-    X_train, X_test, y_train, y_test = preprocessing.preprocess_data(df, TARGET_COLUMN, training=True)
+    X_train, X_test, y_train, y_test, feature_columns = preprocessing.preprocess_data(df, TARGET_COLUMN, training=True)
 
     print("🤖 Training base models...")
     models = train_models(X_train, y_train)
@@ -22,16 +22,16 @@ def main():
     print("🔍 Tuning hyperparameters for top models...")
     tuned_models = tune_hyperparameters(X_train, y_train, models)
 
-    print("📊 Evaluating models and saving results...")
+    print("📊 Evaluating models and selecting best...")
     best_model = evaluate_models(tuned_models, X_test, y_test)
 
-    print("💾 Saving best model and preprocessor to disk...")
+    print("💾 Saving best model, preprocessor, and feature columns to disk...")
     os.makedirs("outputs", exist_ok=True)
     joblib.dump(best_model, "outputs/best_model.pkl")
     joblib.dump(preprocessing.preprocessor, "outputs/preprocessor.pkl")
+    joblib.dump(feature_columns, "outputs/feature_columns.pkl")
 
-    print("✅ Best model saved as outputs/best_model.pkl")
-    print("✅ Preprocessor saved as outputs/preprocessor.pkl")
+    print("✅ Artifacts saved: model, preprocessor, and feature columns.")
 
 if __name__ == "__main__":
     main()

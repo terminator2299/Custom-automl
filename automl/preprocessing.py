@@ -5,16 +5,16 @@ from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
-# Global preprocessor variable
-preprocessor = None
+preprocessor = None  # Global preprocessor
 
 def preprocess_data(df: pd.DataFrame, target_column: str = None, training: bool = True):
     global preprocessor
 
-    if training:
-        if target_column is None:
-            raise ValueError("Please specify the target column name.")
+    # Only require target_column if training=True
+    if training and target_column is None:
+        raise ValueError("Please specify the target column name during training.")
 
+    if training:
         # Drop rows with missing target
         df = df.dropna(subset=[target_column])
 
@@ -26,36 +26,36 @@ def preprocess_data(df: pd.DataFrame, target_column: str = None, training: bool 
         numeric_features = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
         categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
-        # Pipelines for each feature type
-        numeric_pipeline = Pipeline(steps=[
+        # Pipelines for numeric and categorical features
+        numeric_pipeline = Pipeline([
             ("imputer", SimpleImputer(strategy="mean")),
             ("scaler", StandardScaler())
         ])
 
-        categorical_pipeline = Pipeline(steps=[
+        categorical_pipeline = Pipeline([
             ("imputer", SimpleImputer(strategy="most_frequent")),
             ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
         ])
 
-        # Combine pipelines
-        preprocessor = ColumnTransformer(transformers=[
+        preprocessor = ColumnTransformer([
             ("num", numeric_pipeline, numeric_features),
             ("cat", categorical_pipeline, categorical_features)
         ])
 
-        # Fit-transform data
         X_processed = preprocessor.fit_transform(X)
 
-        # Train-test split
+        # Train/test split
         X_train, X_test, y_train, y_test = train_test_split(
             X_processed, y, test_size=0.2, random_state=42
         )
         return X_train, X_test, y_train, y_test
 
     else:
-        # Prediction mode (target_column is ignored, input df should NOT have target)
+        # Prediction mode: target_column may be None or ignored
+        X = df.copy()
+
         if preprocessor is None:
             raise RuntimeError("Preprocessor not initialized. Run training first and load the preprocessor.")
 
-        X_processed = preprocessor.transform(df)
+        X_processed = preprocessor.transform(X)
         return X_processed

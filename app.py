@@ -1,52 +1,80 @@
-from flask import Flask, request, render_template, redirect, url_for
+import streamlit as st
 import pandas as pd
-import os
 import joblib
-from automl.preprocessing import preprocess_data
+import os
+from automl import preprocessing
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+st.title("AutoML Prediction App")
 
-# Load model and preprocessor once on startup
-model = joblib.load("outputs/best_model.pkl")
-preprocessor = joblib.load("outputs/preprocessor.pkl")
+# Load artifacts once
+@st.cache_resource(show_spinner=False)
+def load_artifacts():
+    model_path = "outputs/best_model.pkl"
+    preprocessor_path = "outputs/preprocessor.pkl"
+    feature_cols_path = "outputs/feature_columns.pkl"
 
-@app.route('/', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            return "No file part"
-        file = request.files['file']
-        if file.filename == '':
-            return "No selected file"
-        if file:
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(filepath)
+    if not (os.path.exists(model_path) and os.path.exists(preprocessor_path) and os.path.exists(feature_cols_path)):
+        st.error("Trained model, preprocessor or feature columns not found. Please run training first.")
+        return None, None, None
 
-            # Load new data
-            data = pd.read_csv(filepath)
+    model = joblib.load(model_path)
+    preprocessor_loaded = joblib.load(preprocessor_path)
+    feature_columns = joblib.load(feature_cols_path)
+    return model, preprocessor_loaded, feature_columns
 
-            # Preprocess data (prediction mode)
-            global preprocess_data
-            # Manually inject preprocessor for this session
-            preprocess_data.preprocessor = preprocessor
+model, preprocessor_loaded, feature_columns = load_artifacts()
 
-            X = preprocess_data(data, training=False)
-            predictions = model.predict(X)
+if model is None:
+    st.stop()
 
-            # Add predictions to dataframe
-            data['Prediction'] = predictions
-            output_file = os.path.join(app.config['UPLOAD_FOLDER'], 'predictions.csv')
-            data.to_csv(output_file, index=False)
+# Assign loaded preprocessor globally for preprocessing module
+preprocessing.preprocessor = preprocessor_loaded
 
-            return render_template('result.html', tables=[data.head().to_html(classes='data')], filename='predictions.csv')
+uploaded_file = st.file_uploader("Upload your CSV file for prediction", type=["csv"])
 
-    return render_template('upload.html')
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    st.write("### Uploaded Data Sample", df.head())
 
-@app.route('/download/<filename>')
-def download_file(filename):
-    return redirect(url_for('static', filename=filename), code=301)
+    # Let user select target column if it exists in data to drop for prediction
+    target_column = None
+    cols = df.columns.tolist()
+    if len(cols) > 0:
+        target_column = st.selectbox("Select target column (if present) to exclude from prediction", options=[None] + cols)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    try:
+        # Drop target column if selected
+        if target_column and target_column in df.columns:
+            df = df.drop(columns=[target_column])
+
+        # Check for missing columns
+        missing_cols = set(feature_columns) - set(df.columns)
+        if missing_cols:
+            st.error(f"Input data is missing these required columns: {missing_cols}")
+        else:
+            # Reorder columns to match training
+            df = df[feature_columns]
+
+            # Preprocess
+            X_processed = preprocessing.preprocess_data(df, training=False)
+
+            # Predict
+            preds = model.predict(X_processed)
+
+            # Show results
+            df["Prediction"] = preds
+            st.write("### Predictions")
+            st.dataframe(df)
+
+            # Download link for predictions CSV
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download Predictions as CSV",
+                data=csv,
+                file_name='predictions.csv',
+                mime='text/csv',
+            )
+    except Exception as e:
+        st.error(f"❌ Error during prediction: {e}")
+else:
+    st.info("Please upload a CSV file to get started.")

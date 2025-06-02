@@ -21,9 +21,8 @@ def main(input_file):
     preprocessor_loaded = joblib.load(preprocessor_path)
     preprocessing.preprocessor = preprocessor_loaded
 
-    # Make sure target column is NOT present in new_data for prediction
-    # Just preprocess features
-    X_test = preprocessing.preprocess_data(new_data, training=False)
+    # Pass target_column=None when calling preprocess_data for prediction
+    X_test = preprocessing.preprocess_data(new_data, target_column=None, training=False)
 
     print("🤖 Making predictions...")
     predictions = model.predict(X_test)
