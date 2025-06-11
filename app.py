@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import os
+import sklearn
 from automl import preprocessing
 
 st.set_page_config(page_title="AutoML Predictor", layout="wide")
@@ -18,10 +19,35 @@ def load_artifacts():
     if not (os.path.exists(model_path) and os.path.exists(preprocessor_path) and os.path.exists(feature_cols_path)):
         return None, None, None
 
-    model = joblib.load(model_path)
-    preprocessor = joblib.load(preprocessor_path)
-    feature_columns = joblib.load(feature_cols_path)
-    return model, preprocessor, feature_columns
+    try:
+        # Load feature columns first as it's the simplest
+        feature_columns = joblib.load(feature_cols_path)
+        
+        # Load model
+        model = joblib.load(model_path)
+        
+        # Load preprocessor with error handling
+        try:
+            preprocessor = joblib.load(preprocessor_path)
+        except AttributeError as e:
+            st.error(f"""
+            ❌ Error loading preprocessor: {str(e)}
+            
+            This error typically occurs when:
+            1. The Python version used to save the model is different from the current version
+            2. The scikit-learn version is different
+            3. The class definitions have changed
+            
+            Current scikit-learn version: {sklearn.__version__}
+            
+            Please ensure you're using the same Python and scikit-learn versions as when the model was trained.
+            """)
+            return None, None, None
+            
+        return model, preprocessor, feature_columns
+    except Exception as e:
+        st.error(f"❌ Error loading model artifacts: {str(e)}")
+        return None, None, None
 
 model, preprocessor_loaded, feature_columns = load_artifacts()
 

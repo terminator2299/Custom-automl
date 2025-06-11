@@ -48,7 +48,11 @@ def preprocess_data(df: pd.DataFrame, target_column: str = None, training: bool 
         X_train, X_test, y_train, y_test = train_test_split(
             X_processed, y, test_size=0.2, random_state=42
         )
-        return X_train, X_test, y_train, y_test
+        
+        # Get feature columns
+        feature_columns = X.columns.tolist()
+        
+        return X_train, X_test, y_train, y_test, feature_columns
 
     else:
         # Prediction mode: target_column may be None or ignored
