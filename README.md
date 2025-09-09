@@ -2,6 +2,9 @@
 
 A fully functional Custom AutoML system built to automate the entire machine learning pipeline from data preprocessing to model deployment. This system handles data preprocessing, model training, hyperparameter tuning, evaluation, and prediction through a modular and reusable architecture.
 
+
+![App Screenshot](assetsautoml/AutoML_img.png)
+
 ## 🚀 Features
 
 - **Automated Preprocessing**: Smart handling of missing values, feature scaling, and categorical encoding
